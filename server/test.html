@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>WebSocket Test</title>
+</head>
+<body>
+  <h1>WebSocket Test</h1>
+  <button id="connect">Connect</button>
+  <button id="send" disabled>Send Test Message</button>
+  <div id="status">Disconnected</div>
+  <div id="log"></div>
+
+  <script>
+    let socket;
+    
+    document.getElementById('connect').addEventListener('click', () => {
+      socket = new WebSocket('ws://localhost:8080');
+      
+      socket.onopen = () => {
+        document.getElementById('status').textContent = 'Connected';
+        document.getElementById('send').disabled = false;
+        log('Connected to server');
+      };
+      
+      socket.onmessage = (event) => {
+        log('Received: ' + event.data);
+      };
+      
+      socket.onclose = () => {
+        document.getElementById('status').textContent = 'Disconnected';
+        document.getElementById('send').disabled = true;
+        log('Disconnected from server');
+      };
+      
+      socket.onerror = (error) => {
+        log('Error: ' + error);
+      };
+    });
+    
+    document.getElementById('send').addEventListener('click', () => {
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+          type: 'test',
+          message: 'Hello server!'
+        }));
+        log('Sent test message');
+      }
+    });
+    
+    function log(message) {
+      const logDiv = document.getElementById('log');
+      logDiv.innerHTML += `<div>${message}</div>`;
+    }
+  </script>
+</body>
+</html>
