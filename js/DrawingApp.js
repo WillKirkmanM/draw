@@ -35,6 +35,9 @@ export class DrawingApp {
     this.canvasOffsetX = 0;
     this.canvasOffsetY = 0;
     
+    this.lastSelectedShape = null;
+    this.ignoreNextDeselect = false;
+    
     this.eventBus = EventBus.getInstance();
     this.historyManager = new HistoryManager(this);
     this.toolManager = new ToolManager(this);
@@ -73,19 +76,112 @@ export class DrawingApp {
     this.uiManager.initiaiseFileOperations();
     this.setupP5();
     
-    // Initiaise theme based on user preference
-    const prefersDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    if (prefersDarkMode) {
-      this.toggleTheme();
-    }
-    
     this.initCollaboration();
     this.initCollaborationUI();
     
     console.log('Drawing application initiaised with tools:', Object.keys(this.toolManager.tools).join(', '));
   }
-
-
+  /**
+   * Adds a shape to the canvas
+   * @param {Object} shapeData - The shape data to add
+   */
+  addShape(shapeData) {
+      let shape;
+      
+      switch (shapeData.type) {
+          case 'rect':
+              shape = {
+                  type: 'rect',
+                  x: shapeData.x,
+                  y: shapeData.y,
+                  width: shapeData.width,
+                  height: shapeData.height,
+                  strokeColor: shapeData.strokeColor || '#000000',
+                  fillColor: shapeData.fillColor || '#ffffff',
+                  strokeWeight: shapeData.strokeWeight || 2,
+                  opacity: shapeData.opacity !== undefined ? shapeData.opacity : 1
+              };
+              break;
+              
+          case 'ellipse':
+              shape = {
+                  type: 'ellipse',
+                  x: shapeData.x,
+                  y: shapeData.y,
+                  width: shapeData.width,
+                  height: shapeData.height,
+                  strokeColor: shapeData.strokeColor || '#000000',
+                  fillColor: shapeData.fillColor || '#ffffff',
+                  strokeWeight: shapeData.strokeWeight || 2,
+                  opacity: shapeData.opacity !== undefined ? shapeData.opacity : 1
+              };
+              break;
+              
+          case 'diamond':
+              shape = {
+                  type: 'diamond',
+                  x: shapeData.x,
+                  y: shapeData.y,
+                  width: shapeData.width,
+                  height: shapeData.height,
+                  strokeColor: shapeData.strokeColor || '#000000',
+                  fillColor: shapeData.fillColor || '#ffffff',
+                  strokeWeight: shapeData.strokeWeight || 2,
+                  opacity: shapeData.opacity !== undefined ? shapeData.opacity : 1
+              };
+              break;
+              
+          case 'arrow':
+              shape = {
+                  type: 'arrow',
+                  x1: shapeData.x1,
+                  y1: shapeData.y1,
+                  x2: shapeData.x2,
+                  y2: shapeData.y2,
+                  strokeColor: shapeData.strokeColor || '#000000',
+                  strokeWeight: shapeData.strokeWeight || 2,
+                  opacity: shapeData.opacity !== undefined ? shapeData.opacity : 1
+              };
+              break;
+              
+          case 'line':
+              shape = {
+                  type: 'line',
+                  x1: shapeData.x1,
+                  y1: shapeData.y1,
+                  x2: shapeData.x2,
+                  y2: shapeData.y2,
+                  strokeColor: shapeData.strokeColor || '#000000',
+                  strokeWeight: shapeData.strokeWeight || 2,
+                  opacity: shapeData.opacity !== undefined ? shapeData.opacity : 1
+              };
+              break;
+              
+          case 'text':
+              shape = {
+                  type: 'text',
+                  text: shapeData.text || 'Text',
+                  x: shapeData.x,
+                  y: shapeData.y,
+                  fontSize: shapeData.fontSize || 16,
+                  fontFamily: shapeData.fontFamily || 'Arial',
+                  strokeColor: shapeData.strokeColor || '#000000',
+                  fillColor: shapeData.fillColor || '#000000',
+                  opacity: shapeData.opacity !== undefined ? shapeData.opacity : 1
+              };
+              break;
+              
+          default:
+              console.warn('Unknown shape type:', shapeData.type);
+              return;
+      }
+      
+      // Add the shape to your shapes array
+      this.shapes.push(shape);
+      
+      // Update the display
+      this.redraw();
+  }
   
   setupToolKeyboardShortcuts(shortcuts) {
     // Remove previous listener to avoid duplicates
@@ -235,6 +331,28 @@ export class DrawingApp {
         }
       }
     });
+
+    // Select tool
+    document.getElementById('select-tool').addEventListener('click', () => {
+      this.toolManager.setTool('select');
+    });
+
+    // Keyboard shortcut for select tool (V or 1)
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'v' || e.key === 'V' || e.key === '1') {
+        this.toolManager.setTool('select');
+      }
+    });
+
+    // Delete Selected button
+    document.getElementById('delete-selected').addEventListener('click', () => {
+      this.deleteSelectedShape();
+    });
+    
+    // Clear Canvas button
+    document.getElementById('clear-canvas').addEventListener('click', () => {
+      this.clearCanvas();
+    });
   }
   
   // Update the draw method to handle offsets
@@ -267,23 +385,42 @@ export class DrawingApp {
   }
   
   redraw() {
-    // Clear canvas
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    
-    // Draw all shapes
+    // Skip if canvas or p5Instance isn't available yet
+    if (!this.p5Instance || !this.canvas) {
+      console.warn('Canvas or p5Instance not available for redraw');
+      return;
+    }
+      
+    // Use p5's background method instead of ctx.fillStyle and clearRect
+    if (document.body.classList.contains('dark')) {
+      this.p5Instance.background(30, 30, 30); // Dark gray background in RGB
+    } else {
+      this.p5Instance.background(255); // White background
+    }
+      
+    // Draw all shapes using the p5 instance
     this.shapes.forEach(shape => {
-      shape.render(this.ctx);
+      if (shape && typeof shape.render === 'function') {
+        shape.render(this.p5Instance);
+      } else if (shape && shape.type) {
+        // Use the shape factory if the shape doesn't have its own render method
+        this.shapeFactory.getRenderer(shape.type).render(this.p5Instance, shape);
+      }
     });
-    
+      
     // Draw current shape being created
     if (this.currentShape) {
-      this.currentShape.render(this.ctx);
+      if (typeof this.currentShape.render === 'function') {
+        this.currentShape.render(this.p5Instance);
+      } else if (this.currentShape.type) {
+        this.shapeFactory.getRenderer(this.currentShape.type).render(this.p5Instance, this.currentShape);
+      }
     }
-    
+      
     // Draw selection UI from the current tool if applicable
     const currentTool = this.toolManager.getCurrentTool();
     if (currentTool && typeof currentTool.render === 'function') {
-      currentTool.render(this.ctx);
+      currentTool.render(this.p5Instance);
     }
   }
   
@@ -392,23 +529,145 @@ export class DrawingApp {
   }
 
   setupPropertyListeners() {
-    // Listen for color changes
+    const preventDeselect = (e) => {
+      e.stopPropagation();
+      this.ignoreNextDeselect = true;
+      
+      // Restore selection if it was lost
+      if (!this.selectedShape && this.lastSelectedShape) {
+        this.selectedShape = this.lastSelectedShape;
+      }
+    };
+    
+    // Apply preventDeselect to all property controls
+    const propertyControls = [
+      'stroke-color', 
+      'fill-color', 
+      'stroke-weight', 
+      'opacity', 
+      'font-family', 
+      'font-size',
+      'align-left',
+      'align-center',
+      'align-right'
+    ];
+    
+    propertyControls.forEach(id => {
+      const element = document.getElementById(id);
+      if (element) {
+        element.addEventListener('mousedown', preventDeselect);
+        element.addEventListener('click', preventDeselect);
+      }
+    });
+    
+    // Also apply it to the property panel container
+    const propertiesPanel = document.querySelector('.bg-white.rounded-lg.shadow-lg.p-4.flex.flex-col.gap-4');
+    if (propertiesPanel) {
+      propertiesPanel.addEventListener('mousedown', preventDeselect);
+    }
+  
+    // Stroke color
     document.getElementById('stroke-color').addEventListener('input', (e) => {
+      preventDeselect(e); // Ensure we don't lose selection
       this.strokeColor = e.target.value;
+      
+      // If a shape is selected, update its stroke color
+      if (this.selectedShape) {
+        this.selectedShape.strokeColor = e.target.value;
+        this.lastSelectedShape = this.selectedShape; // Save the reference
+        this.redraw();
+      }
     });
     
+    // Fill color
     document.getElementById('fill-color').addEventListener('input', (e) => {
+      preventDeselect(e); // Ensure we don't lose selection
       this.fillColor = e.target.value;
+      
+      // If a shape is selected, update its fill color
+      if (this.selectedShape) {
+        this.selectedShape.fillColor = e.target.value;
+        this.lastSelectedShape = this.selectedShape; // Save the reference
+        this.redraw();
+      }
     });
     
+    // Stroke weight
     document.getElementById('stroke-weight').addEventListener('input', (e) => {
-      this.strokeWeight = parseInt(e.target.value);
-      document.getElementById('stroke-weight-value').textContent = `${this.strokeWeight}px`;
+      preventDeselect(e); // Ensure we don't lose selection
+      const weight = parseInt(e.target.value);
+      this.strokeWeight = weight;
+      document.getElementById('stroke-weight-value').textContent = `${weight}px`;
+      
+      // If a shape is selected, update its stroke weight
+      if (this.selectedShape) {
+        this.selectedShape.strokeWeight = weight;
+        this.lastSelectedShape = this.selectedShape; // Save the reference
+        this.redraw();
+      }
     });
     
+    // Opacity
     document.getElementById('opacity').addEventListener('input', (e) => {
-      this.opacity = parseInt(e.target.value);
-      document.getElementById('opacity-value').textContent = `${this.opacity}%`;
+      preventDeselect(e); // Ensure we don't lose selection
+      const opacity = parseInt(e.target.value);
+      this.opacity = opacity;
+      document.getElementById('opacity-value').textContent = `${opacity}%`;
+      
+      // If a shape is selected, update its opacity
+      if (this.selectedShape) {
+        this.selectedShape.opacity = opacity / 100; // Convert to 0-1 range
+        this.lastSelectedShape = this.selectedShape; // Save the reference
+        this.redraw();
+      }
+    });
+    
+    // Font family
+    document.getElementById('font-family').addEventListener('change', (e) => {
+      preventDeselect(e); // Ensure we don't lose selection
+      if (this.selectedShape && this.selectedShape.type === 'text') {
+        this.selectedShape.fontFamily = e.target.value;
+        this.lastSelectedShape = this.selectedShape; // Save the reference
+        this.redraw();
+      }
+    });
+    
+    // Font size
+    document.getElementById('font-size').addEventListener('input', (e) => {
+      preventDeselect(e); // Ensure we don't lose selection
+      if (this.selectedShape && this.selectedShape.type === 'text') {
+        this.selectedShape.fontSize = parseInt(e.target.value);
+        this.lastSelectedShape = this.selectedShape; // Save the reference
+        this.redraw();
+      }
+    });
+    
+    // Text alignment buttons
+    document.getElementById('align-left').addEventListener('click', (e) => {
+      preventDeselect(e); // Ensure we don't lose selection
+      if (this.selectedShape && this.selectedShape.type === 'text') {
+        this.selectedShape.textAlign = 'left';
+        this.lastSelectedShape = this.selectedShape; // Save the reference
+        this.redraw();
+      }
+    });
+    
+    document.getElementById('align-center').addEventListener('click', (e) => {
+      preventDeselect(e); // Ensure we don't lose selection
+      if (this.selectedShape && this.selectedShape.type === 'text') {
+        this.selectedShape.textAlign = 'center';
+        this.lastSelectedShape = this.selectedShape; // Save the reference
+        this.redraw();
+      }
+    });
+    
+    document.getElementById('align-right').addEventListener('click', (e) => {
+      preventDeselect(e); // Ensure we don't lose selection
+      if (this.selectedShape && this.selectedShape.type === 'text') {
+        this.selectedShape.textAlign = 'right';
+        this.lastSelectedShape = this.selectedShape; // Save the reference
+        this.redraw();
+      }
     });
   }
 
@@ -531,5 +790,50 @@ export class DrawingApp {
   initCollaboration() {
     this.collaborationManager.connect();
     this.initMouseTracking();
+  }
+
+  /**
+   * Deletes the currently selected shape
+   */
+  deleteSelectedShape() {
+    if (this.selectedShape) {
+      // Find the index of the selected shape in the shapes array
+      const index = this.shapes.indexOf(this.selectedShape);
+      if (index !== -1) {
+        // Remove the shape from the array
+        this.shapes.splice(index, 1);
+        
+        // Clear the selection references
+        this.selectedShape = null;
+        this.lastSelectedShape = null;
+        
+        // Save to history
+        this.historyManager?.saveToHistory();
+        
+        // Redraw the canvas
+        this.redraw();
+      }
+    }
+  }
+
+  /**
+   * Clears all shapes from the canvas
+   */
+  clearCanvas() {
+    // Show a confirmation dialog
+    if (this.shapes.length > 0 && confirm('Are you sure you want to clear the canvas? This action cannot be undone.')) {
+      // Clear the shapes array
+      this.shapes = [];
+      
+      // Clear selection references
+      this.selectedShape = null;
+      this.lastSelectedShape = null;
+      
+      // Save to history
+      this.historyManager?.saveToHistory();
+      
+      // Redraw the canvas
+      this.redraw();
+    }
   }
 }
