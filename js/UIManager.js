@@ -6,14 +6,6 @@ export class UIManager {
     
     // Set up event bus
     this.eventBus = app.eventBus;
-    
-    // Check for stored theme preference
-    const darkMode = localStorage.getItem('darkMode');
-    if (darkMode === 'true') {
-      // Apply dark mode on startup
-      document.body.classList.add('dark');
-      this.app.isDarkTheme = true;
-    }
   }
   
   initiaiseToolUI(toolNames) {
@@ -50,8 +42,10 @@ export class UIManager {
         tooltip: 'Pencil (P)'
       },
       'eraser': {
-        icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+        icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/>
+                <path d="M22 21H7"/>
+                <path d="m5 11 9 9"/>
               </svg>`,
         tooltip: 'Eraser (E)'
       },
@@ -68,8 +62,8 @@ export class UIManager {
         tooltip: 'Ellipse (O)'
       },
       'line': {
-        icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="5" y1="5" x2="19" y2="19" />
+        icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 12h14"/>
               </svg>`,
         tooltip: 'Line (L)'
       },
@@ -81,8 +75,10 @@ export class UIManager {
         tooltip: 'Arrow (A)'
       },
       'diamond': {
-        icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polygon points="12 2 22 12 12 22 2 12" />
+        icon: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-gem-icon lucide-gem">
+                <path d="M6 3h12l4 6-10 13L2 9Z"/>
+                <path d="M11 3 8 9l4 13 4-13-3-6"/>
+                <path d="M2 9h20"/>
               </svg>`,
         tooltip: 'Diamond (D)'
       },
